@@ -122,7 +122,7 @@ The extension injects a content script into every page, mounting a React app ins
 
 ## Integrations
 
-External Chrome extensions can read and write annotations via the JSON-RPC envelope, and subscribe to changes over a long-lived port. See [**docs/integrations.md**](docs/integrations.md) for setup, including the **New Tab Workbench** integration (`~/code/claude/newtab`) which mirrors per-tab "why I have this open" notes as page-level sticky notes.
+External Chrome extensions can read and write annotations via the JSON-RPC envelope, and subscribe to changes over a long-lived port. See [**docs/integrations.md**](docs/integrations.md) for setup, including the **new tab, blue tab** integration (`~/code/claude/newtab`) which mirrors per-tab "why I have this open" notes as page-level sticky notes.
 
 ## Data Formats
 

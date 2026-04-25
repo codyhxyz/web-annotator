@@ -54,11 +54,11 @@ The annotator's pinned ID is **`gkakfegigenenalboaalalflkbdhppgh`**.
 
 ## Known integrations
 
-### New Tab Workbench (`~/code/claude/newtab`)
+### new tab, blue tab (`~/code/claude/newtab`)
 
 Pinned ID: **`ecgffmpjfhljlfcgahmlckpajnbmpogj`**.
 
-When the user edits a tab note in the New Tab Workbench, the note is
+When the user edits a tab note in new tab, blue tab, the note is
 mirrored as a sticky `note`-type annotation on the page's canonical URL,
 tagged `newtab-intent`. CREATE/UPDATE/DELETE are idempotent on the newtab
 side via a local `canonicalUrl → annotationId` map.
