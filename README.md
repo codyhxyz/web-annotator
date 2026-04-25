@@ -116,7 +116,13 @@ The extension injects a content script into every page, mounting a React app ins
 
 **Realtime:** Per-page WebSocket rooms via Cloudflare Durable Objects. Reconnect is unbounded with exponential backoff + jitter (capped at 30s); auth token is re-read on every connect attempt so rotations propagate.
 
-**External API:** `api/protocol.ts` defines a JSON-RPC envelope for external callers (CLIs, MCP servers, local web tools). `ping`, `list`, `get`, `create`, `update`, and `delete` are handled in the service worker via `chrome.runtime.onMessageExternal` against the unified store. `subscribe` returns not-yet-implemented — use polling or an extension-page shim.
+**External API:** `api/protocol.ts` defines a JSON-RPC envelope for external callers (CLIs, MCP servers, local web tools). `ping`, `list`, `get`, `create`, `update`, and `delete` are handled in the service worker via `chrome.runtime.onMessageExternal` against the unified store. The JSON-RPC `subscribe` shape is still not implemented for external callers; instead, whitelisted extensions can open a long-lived port named `annotator-events` (see [docs/integrations.md](docs/integrations.md)) and receive `INVALIDATION_MSG` broadcasts directly.
+
+**Stable identity:** `manifest.json` pins a `key` field so the extension's runtime ID is the same on every machine and reinstall. Cross-extension callers (and `externally_connectable.ids` lists) can be hardcoded against that ID. The matching private key lives in `annotator-v2/.keys/extension.pem` (gitignored — DO NOT COMMIT). Regenerate with `openssl genrsa -out annotator-v2/.keys/extension.pem 2048`; recompute the public-key field and the resulting ID per the formula in [docs/integrations.md](docs/integrations.md).
+
+## Integrations
+
+External Chrome extensions can read and write annotations via the JSON-RPC envelope, and subscribe to changes over a long-lived port. See [**docs/integrations.md**](docs/integrations.md) for setup, including the **New Tab Workbench** integration (`~/code/claude/newtab`) which mirrors per-tab "why I have this open" notes as page-level sticky notes.
 
 ## Data Formats
 

@@ -3,6 +3,7 @@
   "name": "Web Annotator v2",
   "version": "1.0",
   "description": "Interaction layer for the web",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsh5NJi+8cWW+7OtexTkZruryIFWLppMZjKgPouCMDSOjKqsNctwo1fgBSIg9QlmrUkB4sl7Gmig/xnl3FkbqJFGMGF4143aB99SETaEBkUmTql0t2+3qx/OPSdOOnsxlY8BUBD9TiTddUboFToAyGFa/gUgltFRJSJSCa8LYThOlpTob3dfZa3GTw0OvXsfFNFgOVcF5C3BmtgphKlOR8vOMfZCnhsHbWLuYu0fhQlwcYrztDRBHYwrE4xMuHjF2NbyzMCKkBvWB8wHzg34R87B0exK0Zt5zcRrhmoYNaXKVTzNiN9CGGj2XYYmaFGDh3aIdvT4P0MHb80VlmKJ0LQIDAQAB",
   "permissions": ["storage", "alarms"],
   "host_permissions": ["<all_urls>"],
   "action": {
@@ -20,7 +21,7 @@
     "type": "module"
   },
   "externally_connectable": {
-    "ids": [],
+    "ids": ["ecgffmpjfhljlfcgahmlckpajnbmpogj"],
     "matches": ["http://localhost:*/*", "http://127.0.0.1:*/*"]
   }
 }

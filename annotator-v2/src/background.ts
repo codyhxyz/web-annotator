@@ -149,6 +149,12 @@ async function handleHandoffCheck(url: string): Promise<{ ok: true; notes: unkno
   }
 }
 
+// External subscribers — long-lived ports opened by other extensions
+// that have been whitelisted in `externally_connectable.ids` and want
+// to receive invalidation events. See `chrome.runtime.onConnectExternal`
+// listener below.
+const externalSubscribers = new Set<chrome.runtime.Port>();
+
 function broadcastChanged(affected?: AnnotationFilter) {
   const msg: InvalidationEvent = { type: INVALIDATION_MSG, affected };
   // Extension pages (Feed, Auth) hear runtime broadcasts.
@@ -159,7 +165,30 @@ function broadcastChanged(affected?: AnnotationFilter) {
       if (tab.id) chrome.tabs.sendMessage(tab.id, msg).catch(() => {});
     }
   });
+  // External subscribers (other extensions). Best-effort — a dropped
+  // port will throw, which we swallow; the disconnect listener below
+  // is the source of truth for membership.
+  for (const port of externalSubscribers) {
+    try { port.postMessage(msg); } catch { /* port already torn down */ }
+  }
 }
+
+// ── External subscription port ──────────────────────────────────────
+// Whitelisted external extensions can open a long-lived port named
+// `annotator-events` to receive INVALIDATION_MSG broadcasts. This is
+// the runtime equivalent of the deferred `annotator:subscribe` JSON-RPC
+// call — kept out of `protocol.ts` because port wiring isn't a request/
+// response shape and shouldn't pretend to be.
+chrome.runtime.onConnectExternal.addListener((port) => {
+  if (port.name !== 'annotator-events') {
+    port.disconnect();
+    return;
+  }
+  externalSubscribers.add(port);
+  port.onDisconnect.addListener(() => {
+    externalSubscribers.delete(port);
+  });
+});
 
 // ── ann:// navigation handler (unchanged semantics) ─────────────────
 function handleNavigateToAnnotation(msg: { url?: string; annotationId?: string }) {

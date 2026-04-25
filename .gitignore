@@ -6,3 +6,7 @@ dist/
 .wrangler/
 tsconfig.tsbuildinfo
 tsconfig.tsbuildinfo
+
+# Stable extension key (manifest "key" public half is committed; private
+# half lives here and pins the runtime ID — DO NOT COMMIT.
+.keys/
