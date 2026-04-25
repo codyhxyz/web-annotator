@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -6,9 +6,10 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
-import type { EditorState, LexicalEditor } from 'lexical';
+import { $getRoot, $createParagraphNode, $createTextNode, type EditorState, type LexicalEditor } from 'lexical';
 
 interface Props {
   initialState?: string;
@@ -37,8 +38,6 @@ const theme = {
 export default function NoteEditor({
   initialState, initialText, onChange, autoFocus, onFocus, onBlur,
 }: Props) {
-  const editorRef = useRef<LexicalEditor | null>(null);
-
   const config = {
     namespace: 'annotator-note',
     theme,
@@ -49,7 +48,10 @@ export default function NoteEditor({
 
   return (
     <LexicalComposer initialConfig={config}>
-      <EditorBridge editorRef={editorRef} fallbackText={initialState ? '' : initialText} autoFocus={autoFocus} />
+      <EditorBootstrap
+        seedText={initialState ? '' : initialText}
+        autoFocus={autoFocus}
+      />
       <div className="relative h-full" onFocus={onFocus} onBlur={onBlur}>
         <RichTextPlugin
           contentEditable={
@@ -64,10 +66,9 @@ export default function NoteEditor({
         <HistoryPlugin />
         <ListPlugin />
         <OnChangePlugin onChange={(state: EditorState, editor: LexicalEditor) => {
-          editorRef.current = editor;
           const json = JSON.stringify(state.toJSON());
           let text = '';
-          state.read(() => { text = state._nodeMap.size > 0 ? (editor.getRootElement()?.innerText ?? '') : ''; });
+          state.read(() => { text = editor.getRootElement()?.innerText ?? ''; });
           onChange(json, text);
         }} />
       </div>
@@ -75,26 +76,40 @@ export default function NoteEditor({
   );
 }
 
-/** Seed the editor with plain text on first mount when no lexical state exists. */
-function EditorBridge({
-  editorRef, fallbackText, autoFocus,
+/**
+ * Mount-time bootstrap: grab the editor instance via context (available
+ * synchronously on first render — unlike the OnChangePlugin ref pattern,
+ * which only fires after a state change) and apply autofocus + plain-text
+ * seed exactly once.
+ */
+function EditorBootstrap({
+  seedText, autoFocus,
 }: {
-  editorRef: React.MutableRefObject<LexicalEditor | null>;
-  fallbackText: string;
+  seedText: string;
   autoFocus?: boolean;
 }) {
+  const [editor] = useLexicalComposerContext();
+
   useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    if (autoFocus) editor.focus();
-    if (fallbackText) {
+    if (seedText) {
       editor.update(() => {
-        const root = editor.getRootElement();
-        if (root && !root.textContent) {
-          root.textContent = fallbackText;
+        const root = $getRoot();
+        if (root.getTextContent() === '') {
+          const paragraph = $createParagraphNode();
+          paragraph.append($createTextNode(seedText));
+          root.clear();
+          root.append(paragraph);
         }
       });
     }
-  }, [editorRef, fallbackText, autoFocus]);
+    if (autoFocus) {
+      // Defer focus until after the contentEditable is in the DOM.
+      requestAnimationFrame(() => editor.focus());
+    }
+    // Intentionally mount-only: re-running on prop changes would steal
+    // focus mid-typing or clobber edits with stale seed text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return null;
 }

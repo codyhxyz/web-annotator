@@ -17,10 +17,15 @@ const MIN_HEIGHT = 80;
 
 export default function AnnotationCard({ annotation, onUndoableAction }: Props) {
   const noteData = getNoteData(annotation);
+  const isHandoff = !!noteData.handoff;
+  const handoffAutoCenter = isHandoff && !noteData.handoffMoved;
   const [position, setPosition] = useState({ x: noteData.x, y: noteData.y });
   const [size, setSize] = useState({ width: noteData.width || 250, height: noteData.height || 120 });
   const [isFocused, setIsFocused] = useState(false);
-  const [pinned, setPinned] = useState(!!noteData.pinned);
+  // Handoff bars render in viewport space (position: fixed) just like
+  // hand-pinned notes — the existing `pinned` rendering branch already
+  // does what we want, so we piggyback on it.
+  const [pinned, setPinned] = useState(!!noteData.pinned || isHandoff);
   const [privacy, setPrivacy] = useState<PrivacyLevel>(annotation.privacy || 'private');
   const latestRef = useRef({ text: noteData.text, lexicalState: noteData.lexicalState });
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,12 +96,24 @@ export default function AnnotationCard({ annotation, onUndoableAction }: Props) 
     }
   }, [pinned, position, annotation, onUndoableAction, updateData]);
 
+  const cardRef = useRef<HTMLDivElement>(null);
+
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startMouseX = e.clientX;
     const startMouseY = e.clientY;
-    const startX = position.x;
-    const startY = position.y;
+
+    // For an unmoved handoff bar, position.x/y are sentinel zeros — read
+    // the actual pixel-perfect viewport rect from the DOM so the first
+    // drag doesn't snap the bar to (0,0).
+    let startX = position.x;
+    let startY = position.y;
+    if (handoffAutoCenter && cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      startX = rect.left;
+      startY = rect.top;
+      setPosition({ x: startX, y: startY });
+    }
 
     const onMouseMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startMouseX;
@@ -109,11 +126,23 @@ export default function AnnotationCard({ annotation, onUndoableAction }: Props) 
       document.removeEventListener('mouseup', onMouseUp);
 
       setPosition(current => {
-        if (current.x !== startX || current.y !== startY) {
-          updateData({ x: current.x, y: current.y });
+        const moved = current.x !== startX || current.y !== startY;
+        const promoteHandoff = handoffAutoCenter; // first drag flips to manual
+        if (moved || promoteHandoff) {
+          const patch: Record<string, unknown> = { x: current.x, y: current.y };
+          if (promoteHandoff) patch.handoffMoved = true;
+          updateData(patch);
           onUndoableAction?.({
-            undo: async () => { updateData({ x: startX, y: startY }); },
-            redo: async () => { updateData({ x: current.x, y: current.y }); },
+            undo: async () => {
+              const u: Record<string, unknown> = { x: startX, y: startY };
+              if (promoteHandoff) u.handoffMoved = false;
+              updateData(u);
+            },
+            redo: async () => {
+              const r: Record<string, unknown> = { x: current.x, y: current.y };
+              if (promoteHandoff) r.handoffMoved = true;
+              updateData(r);
+            },
           });
         }
         return current;
@@ -122,7 +151,7 @@ export default function AnnotationCard({ annotation, onUndoableAction }: Props) 
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-  }, [position, annotation.id, onUndoableAction, updateData]);
+  }, [position, annotation.id, onUndoableAction, updateData, handoffAutoCenter]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent, corner: string) => {
     e.stopPropagation();
@@ -165,21 +194,38 @@ export default function AnnotationCard({ annotation, onUndoableAction }: Props) 
     document.addEventListener('mouseup', onMouseUp);
   }, [size, annotation.id, onUndoableAction, updateData]);
 
+  // Default position for an unmoved handoff bar: hug the bottom edge of
+  // the viewport, horizontally centered. Once the user drags it the
+  // `handoffMoved` flag flips and we fall through to explicit x/y.
+  const baseStyle = {
+    width: size.width,
+    maxWidth: isHandoff ? 'calc(100vw - 32px)' : undefined,
+    height: size.height,
+    backgroundColor: annotation.color || '#fef08a',
+    pointerEvents: 'auto' as const,
+  };
+  const positionStyle = handoffAutoCenter
+    ? {
+        position: 'fixed' as const,
+        left: '50%',
+        bottom: 16,
+        transform: 'translateX(-50%)',
+        zIndex: 10000,
+      }
+    : {
+        position: pinned ? ('fixed' as const) : ('absolute' as const),
+        left: position.x,
+        top: position.y,
+        zIndex: pinned ? 10000 : 10,
+      };
+
   return (
     <div
+      ref={cardRef}
       className={`shadow-lg rounded-xl overflow-hidden backdrop-blur-md border transition-shadow group ${
         isFocused ? 'ring-2 ring-blue-500 border-blue-200' : 'border-slate-200/50 hover:border-slate-300'
       }`}
-      style={{
-        position: pinned ? 'fixed' : 'absolute',
-        left: position.x,
-        top: position.y,
-        width: size.width,
-        height: size.height,
-        backgroundColor: annotation.color || '#fef08a',
-        pointerEvents: 'auto',
-        zIndex: pinned ? 10000 : 10,
-      }}
+      style={{ ...baseStyle, ...positionStyle }}
     >
       {/* Drag handle with pin + privacy buttons */}
       <div

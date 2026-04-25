@@ -53,6 +53,10 @@ export interface NoteData {
   pinned?: boolean;
   /** Optional highlight this note was spawned from. */
   linkedHighlightId?: string;
+  /** Marks a Handoff/cross-extension note rendered as a bottom-of-viewport bar. */
+  handoff?: boolean;
+  /** Set once the user drags a handoff bar — switches from auto-center to explicit x/y. */
+  handoffMoved?: boolean;
 }
 
 export interface HighlightData {
