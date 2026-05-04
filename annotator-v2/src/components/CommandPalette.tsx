@@ -1,9 +1,10 @@
 import { useRef, useEffect } from "react";
-import { Trash2, Search, Download, Layers } from "lucide-react";
+import { Trash2, Search, Download, Upload, Layers } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clearAll } from "../store/undoable";
 import { currentPageKey } from "../utils/normalizeUrl";
 import { exportAndDownload } from "../utils/exportAnnotations";
+import { importJsonl, importReadwiseCsv, importKindleClippings, importHypothesisJson } from "../utils/importers";
 import { tools } from "../tools/registry";
 import PresenceIndicator from "./PresenceIndicator";
 import AuthButton from "./AuthButton";
@@ -19,6 +20,7 @@ interface Props {
 
 export default function CommandPalette({ activeToolId, onSelectTool, onClose, onUndoableAction, onSearchOpen }: Props) {
   const posRef = useRef<HTMLDivElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Direct DOM positioning — no React state, zero lag
   useEffect(() => {
@@ -53,6 +55,41 @@ export default function CommandPalette({ activeToolId, onSelectTool, onClose, on
       await exportAndDownload({ url: currentUrl });
     } catch (e) {
       console.error("Failed to export page annotations", e);
+    }
+  };
+
+  /**
+   * Route an imported file to the right parser. We sniff format in this
+   * order: extension first (cheap, unambiguous for .csv / .jsonl); for
+   * `.txt` we trust Kindle's `==========` separator; for `.json` we peek
+   * at the first row to distinguish Hypothesis (`uri`/`target`) from our
+   * own JSONL fallback.
+   */
+  const handleImportFile = async (file: File) => {
+    try {
+      const content = await file.text();
+      const name = file.name.toLowerCase();
+
+      let result: { imported: number; skipped?: number };
+      if (name.endsWith('.csv')) {
+        result = await importReadwiseCsv(content);
+      } else if (name.endsWith('.jsonl')) {
+        result = await importJsonl(content);
+      } else if (name.endsWith('.txt')) {
+        result = await importKindleClippings(content);
+      } else if (name.endsWith('.json')) {
+        result = await importHypothesisJson(content);
+      } else {
+        // Unknown extension — try JSONL (our own format), then fall back.
+        try { result = await importJsonl(content); }
+        catch { result = await importHypothesisJson(content); }
+      }
+
+      const skipped = result.skipped ? ` (${result.skipped} skipped)` : '';
+      window.alert(`Imported ${result.imported} annotations${skipped}.`);
+    } catch (e) {
+      console.error('Import failed', e);
+      window.alert(`Import failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -135,6 +172,24 @@ export default function CommandPalette({ activeToolId, onSelectTool, onClose, on
             >
               <Download size={20} className="stroke-2" />
             </button>
+            <button
+              onClick={() => importInputRef.current?.click()}
+              className="p-3 rounded-full text-slate-600 hover:bg-slate-100/50 hover:text-slate-900 transition-all duration-200 hover:scale-105"
+              title="Import (Readwise .csv, Kindle My Clippings .txt, Hypothesis .json, JSONL backup)"
+            >
+              <Upload size={20} className="stroke-2" />
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,.txt,.json,.jsonl"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportFile(file);
+                e.target.value = ''; // allow re-importing the same file
+              }}
+            />
             <button
               onClick={handleClearAll}
               className="p-3 rounded-full text-red-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200 hover:scale-105"

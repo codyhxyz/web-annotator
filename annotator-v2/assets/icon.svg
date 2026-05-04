@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- The act, not the artifact. A text caret with a highlighter wash
+       blooming behind it — the moment of writing ON the web. Verb,
+       not noun. See concepts/06-caret-wash.svg for the full lineup. -->
+  <rect width="128" height="128" rx="22" fill="#0f172a"/>
+  <rect x="22" y="56" width="84" height="20" rx="3"
+        fill="#fde047" opacity="0.85"/>
+  <g stroke="white" stroke-width="6" stroke-linecap="round">
+    <line x1="64" y1="36" x2="64" y2="96"/>
+    <line x1="56" y1="36" x2="72" y2="36"/>
+    <line x1="56" y1="96" x2="72" y2="96"/>
+  </g>
+</svg>

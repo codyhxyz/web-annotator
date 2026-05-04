@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Globe } from 'lucide-react';
+import { Lock, Users, Globe } from 'lucide-react';
 import type { PrivacyLevel } from '../store/annotation';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
 
 const levels = [
   { id: 'private' as const, icon: Lock, label: 'Private', desc: 'Only you' },
+  { id: 'friends' as const, icon: Users, label: 'Friends', desc: 'Visible to friends' },
   { id: 'open' as const, icon: Globe, label: 'Open', desc: 'Everyone can see & vote' },
 ] as const;
 const DEFAULT_LEVEL = levels[0];

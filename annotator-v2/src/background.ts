@@ -80,6 +80,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (req.type === 'OPEN_AUTH') {
       chrome.tabs.create({ url: chrome.runtime.getURL('src/auth/index.html') });
     }
+    if (req.type === 'OPEN_TAB') {
+      // Content scripts can't call window.open across origins reliably;
+      // SearchPanel "jump to" delegates here. URL must be present.
+      const { url } = req as { type: string; url?: string };
+      if (url) chrome.tabs.create({ url });
+    }
     if (req.type === 'NAVIGATE_TO_ANNOTATION') {
       handleNavigateToAnnotation(req as { type: string; url?: string; annotationId?: string });
     }

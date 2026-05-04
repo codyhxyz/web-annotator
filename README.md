@@ -32,7 +32,6 @@ Web Annotator is a Chrome extension that gives you a personal overlay on every w
 annotator-v2/    Chrome extension (React + Vite + Dexie)
 backend/         Cloudflare Workers sync API (Hono + D1 + Durable Objects)
 cli/             Local CLI companion (better-sqlite3)
-old_extension/   Deprecated v1 (archived, not maintained)
 ```
 
 ## Getting Started

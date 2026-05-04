@@ -24,9 +24,16 @@ returns `not-yet-implemented` — persistent-port semantics via
 origin allowlisting for the subscriber, etc.). External callers can
 poll `annotator:list` in the meantime.
 
-## CLI bridge
+## CLI bridge — partial (CLI → extension only)
 
-`ann serve` on `localhost:7717` is not yet connected. The external API
-handler above exposes the necessary verbs; a thin shim inside the CLI
-can forward HTTP → `chrome.runtime.sendMessage` via an intermediary
-tab. Not shipped in this pass.
+The CLI→extension direction ships via the Handoff pending-notes queue:
+`ann serve` on `localhost:7717` accepts notes for a URL, the SW polls
+`/pending-notes` on page load (`background.ts handleHandoffCheck` →
+`handoff/drainPendingNotes.ts`), and the content script renders them as
+viewport bars.
+
+The reverse direction — extension mutations streamed back to the CLI's
+JSONL store — is not yet wired. The external API handler in
+`background.ts` exposes the verbs an `ann watch` client would need; a
+thin shim inside the CLI can forward HTTP → `chrome.runtime.sendMessage`
+via an intermediary tab. Not shipped in this pass.

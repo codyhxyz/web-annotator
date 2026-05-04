@@ -8,7 +8,7 @@ import useUndoRedo from './hooks/useUndoRedo';
 import { storage } from './store/storage';
 import { getCursorForTool } from './utils/cursors';
 import { currentPageKey } from './utils/normalizeUrl';
-import { watchAuthState, connect, disconnect } from './sync';
+import { watchAuthState, connect, disconnect, subscribe } from './sync';
 import { tools, findTool, findToolByHotkey } from './tools/registry';
 import { createNoteAt } from './tools/note';
 import type { ToolContext } from './tools/types';
@@ -38,7 +38,27 @@ export default function App() {
       if (signedIn) connect(pageKey);
       else disconnect();
     });
-    return () => { unwatchAuth(); disconnect(); };
+
+    // Live cross-device updates: when another client edits an annotation
+    // on this page, PageRoom broadcasts an `annotation:*` message. Coalesce
+    // bursts and ask the SW to run a delta sync — Dexie then drives the
+    // existing invalidation broadcast which re-renders subscribers.
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = subscribe((msg) => {
+      if (msg.type !== 'annotation:create' && msg.type !== 'annotation:update' && msg.type !== 'annotation:delete') return;
+      if (syncTimer) return;
+      syncTimer = setTimeout(() => {
+        syncTimer = null;
+        chrome.runtime.sendMessage({ kind: 'sync.run' }).catch(() => {});
+      }, 250);
+    });
+
+    return () => {
+      unwatchAuth();
+      unsubscribe();
+      if (syncTimer) clearTimeout(syncTimer);
+      disconnect();
+    };
   }, [pageKey, isActive]);
 
   const toggle = useCallback(() => setIsActive(p => !p), []);

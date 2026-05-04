@@ -10,3 +10,6 @@ tsconfig.tsbuildinfo
 # Stable extension key (manifest "key" public half is committed; private
 # half lives here and pins the runtime ID — DO NOT COMMIT.
 .keys/
+
+# Icon design exploration — kept locally as a reference, not shipped.
+annotator-v2/concepts/

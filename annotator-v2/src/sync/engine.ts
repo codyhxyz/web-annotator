@@ -53,7 +53,10 @@ function toServerChange(ann: Annotation): SyncChange {
   };
 }
 
-function fromServerAnnotation(server: NonNullable<SyncChange['annotation']>): Annotation {
+function fromServerAnnotation(
+  server: NonNullable<SyncChange['annotation']>,
+  localTags?: string[],
+): Annotation {
   return {
     id: server.id,
     url: server.url,
@@ -67,7 +70,10 @@ function fromServerAnnotation(server: NonNullable<SyncChange['annotation']>): An
     pageTitle: server.page_title || '',
     favicon: server.favicon || '',
     pageSection: server.page_section || undefined,
-    tags: [],
+    // Tags are local-only today (the backend has no `tags` column —
+    // see backend/src/migrations/0001_initial.sql). Preserve whatever
+    // the local row had so a server pull doesn't wipe user tags.
+    tags: localTags ?? [],
   };
 }
 
@@ -97,7 +103,7 @@ async function applyServerChanges(changes: SyncChange[]) {
         if (local && local.syncStatus === 'pending' && local.updatedAt > change.annotation.updated_at) {
           continue;
         }
-        toPut.push(fromServerAnnotation(change.annotation));
+        toPut.push(fromServerAnnotation(change.annotation, local?.tags));
       }
     }
 

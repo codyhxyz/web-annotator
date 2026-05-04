@@ -11,7 +11,10 @@ export interface Point {
 }
 
 export type AnnotationType = 'stroke' | 'note' | 'highlight';
-export type PrivacyLevel = 'private' | 'open';
+// Mirrors backend/src/lib/types.ts PrivacyLevel — keep in lockstep so
+// sync-pulled rows from a friends-aware client don't get cast-laundered
+// into an unsupported value.
+export type PrivacyLevel = 'private' | 'friends' | 'open';
 export type SyncStatus = 'pending' | 'synced';
 
 /** Unified annotation — one table, one schema. Type-specific payload in `data`. */

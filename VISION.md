@@ -1,7 +1,6 @@
 # Web Annotator v2
 
 **Status:** In production. Working through the "killer Chrome extension" review.
-**Previous version:** See `old_extension/` for the v1 codebase.
 **Framework:** React + Vite + Dexie + Lexical. (Antigravity evaluated, declined — too opinionated for the permissive plugin model we want.)
 
 ---
