@@ -34,9 +34,12 @@ export default function HighlightMenu({ onUndoableAction }: Props) {
       if (target.hasAttribute?.('data-annotator-highlight-id')) return;
       setState(null);
     };
+    // No `scroll` listener: the menu is `position: absolute` inside the
+    // document overlay, so it scrolls with the page natively (stone-
+    // synchrony). The previous implementation closed the menu on scroll
+    // AND leaked its listener — both gone.
     window.addEventListener('annotator-highlight-menu', onOpen);
     document.addEventListener('click', onClick);
-    document.addEventListener('scroll', () => setState(null), { passive: true });
     return () => {
       window.removeEventListener('annotator-highlight-menu', onOpen);
       document.removeEventListener('click', onClick);

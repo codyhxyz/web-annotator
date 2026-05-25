@@ -20,7 +20,12 @@ function NoteTool({ ctx }: { ctx: ToolContext }) {
   return (
     <>
       {notes?.map(ann => (
-        <AnnotationCard key={ann.id} annotation={ann} onUndoableAction={ctx.push} />
+        <AnnotationCard
+          key={ann.id}
+          annotation={ann}
+          onUndoableAction={ctx.push}
+          isSelected={ctx.selectedAnnotationId === ann.id}
+        />
       ))}
     </>
   );

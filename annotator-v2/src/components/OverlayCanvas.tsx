@@ -7,13 +7,19 @@ interface Props {
 }
 
 /**
- * Viewport-sized canvas. The earlier implementation sized the canvas
+ * Viewport-pinned canvas. The earlier implementation sized the canvas
  * to the full document (scrollWidth × scrollHeight), which on a 20k-px
- * page produced a 120 MB backing store. Now the canvas tracks the
- * viewport and we redraw strokes translated by -scroll on each scroll.
+ * page produced a 120 MB backing store. We now keep it viewport-sized
+ * and `position: fixed` so the browser anchors it to the viewport
+ * natively — no JS-driven `transform: translate(scrollX, scrollY)`,
+ * which used to lag one frame behind every scroll.
  *
- * Coordinate system in storage is document-space; the redraw in
- * usePenTool translates on draw. Retina is handled via DPR transform.
+ * Strokes are stored in document-space; the redraw in usePenTool
+ * translates by -scroll on draw, fired by an `annotator-redraw` event
+ * on scroll/resize. Stroke content still pays a one-frame redraw cost
+ * on fast scroll — this is the documented escape hatch from the stone-
+ * synchrony rule (see src/utils/synchrony.ts). Closing it requires an
+ * SVG-element renderer instead of canvas; deferred.
  */
 export default forwardRef<HTMLCanvasElement, Props>(function OverlayCanvas(
   { isActive, pointerEvents, cursor },
@@ -25,7 +31,6 @@ export default forwardRef<HTMLCanvasElement, Props>(function OverlayCanvas(
 
     if (!isActive) {
       if (canvas.width > 0) { canvas.width = 0; canvas.height = 0; }
-      canvas.style.transform = '';
       return;
     }
 
@@ -41,14 +46,12 @@ export default forwardRef<HTMLCanvasElement, Props>(function OverlayCanvas(
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
-    const pin = () => {
-      canvas.style.transform = `translate(${window.scrollX}px, ${window.scrollY}px)`;
-    };
-
     resize();
-    pin();
 
-    const onScroll = () => { pin(); canvas.dispatchEvent(new CustomEvent('annotator-redraw')); };
+    // Scroll listener fires a redraw event so strokes recompute their
+    // viewport coords. It does NOT write any DOM/style — the canvas
+    // itself stays glued to the viewport via `position: fixed`.
+    const onScroll = () => canvas.dispatchEvent(new CustomEvent('annotator-redraw'));
     const onResize = () => { resize(); canvas.dispatchEvent(new CustomEvent('annotator-redraw')); };
 
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -63,13 +66,12 @@ export default forwardRef<HTMLCanvasElement, Props>(function OverlayCanvas(
     <canvas
       ref={ref}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: 0,
         left: 0,
         zIndex: 1,
         pointerEvents,
         cursor,
-        willChange: 'transform',
       }}
     />
   );

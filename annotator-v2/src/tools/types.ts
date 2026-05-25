@@ -15,6 +15,17 @@ export interface ToolContext {
   storage: StorageAdapter;
   push: (action: UndoAction) => void;
   setActiveTool: (id: string | null) => void;
+  /**
+   * Id of the annotation currently "selected" — the one a keyboard
+   * delete (Backspace / Delete) should target. Set by mousedown
+   * delegation in App.tsx walking `composedPath()` for a
+   * `data-annotation-card` attribute. Persists across editor blur so
+   * the user can click out of a note and still hit Backspace to delete
+   * it. Cleared on a mousedown outside any card, on Escape, and after
+   * a successful delete.
+   */
+  selectedAnnotationId: string | null;
+  setSelectedAnnotationId: (id: string | null) => void;
 }
 
 export interface Tool {

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { Trash2, Search, Download, Upload, Layers } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clearAll } from "../store/undoable";
@@ -9,6 +9,7 @@ import { tools } from "../tools/registry";
 import PresenceIndicator from "./PresenceIndicator";
 import AuthButton from "./AuthButton";
 import type { UndoAction } from "../hooks/useUndoRedo";
+import { viewportBottomCenter, useProximityDim } from "../utils/synchrony";
 
 interface Props {
   activeToolId: string | null;
@@ -22,23 +23,9 @@ export default function CommandPalette({ activeToolId, onSelectTool, onClose, on
   const posRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  // Direct DOM positioning — no React state, zero lag
-  useEffect(() => {
-    const el = posRef.current;
-    if (!el) return;
-
-    const update = () => {
-      el.style.top = `${window.scrollY + window.innerHeight - 80}px`;
-    };
-    update();
-
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, []);
+  // VIEWPORT-PINNED. No scroll listeners — `position: fixed` is the
+  // contract. See src/utils/synchrony.ts for the why.
+  useProximityDim(posRef, { nearPx: 80, farPx: 280, idleOpacity: 0.25 });
 
   const currentUrl = currentPageKey();
 
@@ -110,9 +97,7 @@ export default function CommandPalette({ activeToolId, onSelectTool, onClose, on
     <div
       ref={posRef}
       style={{
-        position: 'absolute',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        ...viewportBottomCenter(20),
         zIndex: 9999,
         pointerEvents: 'auto',
       }}

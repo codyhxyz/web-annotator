@@ -1,6 +1,7 @@
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Tool } from "../tools/types";
+import { viewportBottomCenter, useProximityDim } from "../utils/synchrony";
 
 const COLOR_SWATCHES = [
   '#ef4444', // red
@@ -36,31 +37,15 @@ export default function ContextualPanel({
   const showColors = !!activeTool.takesColor;
   const showStrokeWidths = !!activeTool.takesStrokeWidth;
 
-  // Direct DOM positioning — no React state, zero lag
-  useEffect(() => {
-    const el = posRef.current;
-    if (!el) return;
-
-    const update = () => {
-      el.style.top = `${window.scrollY + window.innerHeight - 140}px`;
-    };
-    update();
-
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, []);
+  // VIEWPORT-PINNED. No scroll listeners — `position: fixed` is the
+  // contract. See src/utils/synchrony.ts for the why.
+  useProximityDim(posRef, { nearPx: 80, farPx: 280, idleOpacity: 0.25 });
 
   return (
     <div
       ref={posRef}
       style={{
-        position: 'absolute',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        ...viewportBottomCenter(80),
         zIndex: 9999,
         pointerEvents: 'auto',
       }}

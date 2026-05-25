@@ -10,12 +10,19 @@ import type { UndoAction } from '../hooks/useUndoRedo';
 interface Props {
   annotation: Annotation;
   onUndoableAction?: (action: UndoAction) => void;
+  /**
+   * True when this card is the current keyboard-delete target. Driven
+   * by the mousedown delegation in App.tsx. Visually mirrors the
+   * editor-focused ring so "selected" and "editing" look consistent —
+   * see comment on `isFocused` below.
+   */
+  isSelected?: boolean;
 }
 
 const MIN_WIDTH = 180;
 const MIN_HEIGHT = 80;
 
-export default function AnnotationCard({ annotation, onUndoableAction }: Props) {
+export default function AnnotationCard({ annotation, onUndoableAction, isSelected = false }: Props) {
   const noteData = getNoteData(annotation);
   const isHandoff = !!noteData.handoff;
   const handoffAutoCenter = isHandoff && !noteData.handoffMoved;
@@ -219,11 +226,18 @@ export default function AnnotationCard({ annotation, onUndoableAction }: Props) 
         zIndex: pinned ? 10000 : 10,
       };
 
+  // Editor-focused and "selected for keyboard delete" share the same
+  // visual treatment: a blue ring. Selection is set on mousedown by
+  // App.tsx's delegated listener (which looks for `data-annotation-card`
+  // in `composedPath()`), so the ring appears the moment you grab the
+  // card and persists across editor blur.
+  const ringed = isFocused || isSelected;
   return (
     <div
       ref={cardRef}
+      data-annotation-card={annotation.id}
       className={`shadow-lg rounded-xl overflow-hidden backdrop-blur-md border transition-shadow group ${
-        isFocused ? 'ring-2 ring-blue-500 border-blue-200' : 'border-slate-200/50 hover:border-slate-300'
+        ringed ? 'ring-2 ring-blue-500 border-blue-200' : 'border-slate-200/50 hover:border-slate-300'
       }`}
       style={{ ...baseStyle, ...positionStyle }}
     >

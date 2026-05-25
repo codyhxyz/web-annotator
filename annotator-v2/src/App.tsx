@@ -6,12 +6,18 @@ import SearchPanel from './components/SearchPanel';
 import HighlightMenu from './components/HighlightMenu';
 import useUndoRedo from './hooks/useUndoRedo';
 import { storage } from './store/storage';
+import { deleteAnnotation } from './store/undoable';
 import { getCursorForTool } from './utils/cursors';
 import { currentPageKey } from './utils/normalizeUrl';
 import { watchAuthState, connect, disconnect, subscribe } from './sync';
 import { tools, findTool, findToolByHotkey } from './tools/registry';
 import { createNoteAt } from './tools/note';
 import type { ToolContext } from './tools/types';
+
+/** Data attribute used by mousedown delegation to identify a selectable
+ *  annotation card. Single source of truth so callers and the listener
+ *  can't drift out of sync. */
+const CARD_ATTR = 'data-annotation-card';
 
 export default function App() {
   const [isActive, setIsActive] = useState(false);
@@ -28,6 +34,12 @@ export default function App() {
   });
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  // Latest selection mirror so the keydown listener (registered once)
+  // can read the current selection without re-binding on every change —
+  // re-binding would race against the user pressing Backspace mid-render.
+  const selectedRef = useRef<string | null>(null);
+  selectedRef.current = selectedAnnotationId;
 
   const activeTool = findTool(activeToolId);
 
@@ -76,14 +88,58 @@ export default function App() {
       if (e.key === '`' || e.key === '~') { e.preventDefault(); toggle(); return; }
 
       if (!isActive) return;
-      if (e.key === 'Escape') { setActiveToolId(null); e.preventDefault(); return; }
+      if (e.key === 'Escape') {
+        setActiveToolId(null);
+        setSelectedAnnotationId(null);
+        e.preventDefault();
+        return;
+      }
+
+      // Backspace / Delete on a selected annotation. The editable guard
+      // above already returns early when the user is typing in any
+      // input / textarea / contenteditable (the Lexical note editor
+      // included), so this branch only fires for "selected but not
+      // editing" — exactly the intent: card focused via mousedown, no
+      // editor focus, delete.
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        const id = selectedRef.current;
+        if (!id) return;
+        e.preventDefault();
+        setSelectedAnnotationId(null);
+        deleteAnnotation(id).then(action => push(action)).catch(() => {});
+        return;
+      }
 
       const tool = findToolByHotkey(e.key);
       if (tool) { setActiveToolId(tool.id); e.preventDefault(); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggle, isActive]);
+  }, [toggle, isActive, push]);
+
+  // Mousedown delegation: walks `composedPath()` (which crosses shadow
+  // boundaries) for an element carrying `data-annotation-card`. Hit →
+  // that annotation becomes the selection target for keyboard delete.
+  // Miss → selection clears. Runs only while the overlay is active so
+  // we don't intercept clicks on host pages with overlay closed.
+  useEffect(() => {
+    if (!isActive) {
+      setSelectedAnnotationId(null);
+      return;
+    }
+    const onPointerDown = (e: MouseEvent) => {
+      const path = e.composedPath();
+      let hit: string | null = null;
+      for (const node of path) {
+        if (!(node instanceof Element)) continue;
+        const id = node.getAttribute(CARD_ATTR);
+        if (id) { hit = id; break; }
+      }
+      setSelectedAnnotationId(hit);
+    };
+    window.addEventListener('mousedown', onPointerDown, true);
+    return () => window.removeEventListener('mousedown', onPointerDown, true);
+  }, [isActive]);
 
   useEffect(() => {
     const handler = () => toggle();
@@ -136,8 +192,10 @@ export default function App() {
       storage,
       push,
       setActiveTool: setActiveToolId,
+      selectedAnnotationId,
+      setSelectedAnnotationId,
     }),
-    [activeToolId, isActive, pageKey, toolColors, strokeWidth, push],
+    [activeToolId, isActive, pageKey, toolColors, strokeWidth, push, selectedAnnotationId],
   );
 
   const handleContainerClick = async (e: React.MouseEvent) => {
@@ -152,13 +210,23 @@ export default function App() {
   const containerCursor = isActive && activeTool
     ? getCursorForTool(activeTool.id, cursorOptions) : 'default';
 
+  // Tool cursor injection.
+  //
+  // `documentElement.style.cursor` loses to any descendant with its own
+  // cursor — links get `pointer` from the UA stylesheet, text nodes get
+  // the I-beam, etc. The highlighter / pen cursor would simply never
+  // appear over actual content. Instead we inject a `<style>` element
+  // with a `* { cursor: <url> !important }` rule so the active-tool
+  // cursor wins everywhere on the page.
   useEffect(() => {
-    if (!isActive || !activeTool) {
-      document.documentElement.style.cursor = '';
-      return;
-    }
-    document.documentElement.style.cursor = getCursorForTool(activeTool.id, cursorOptions);
-    return () => { document.documentElement.style.cursor = ''; };
+    if (!isActive || !activeTool) return;
+    const cursor = getCursorForTool(activeTool.id, cursorOptions);
+    if (cursor === 'default') return;
+    const styleEl = document.createElement('style');
+    styleEl.setAttribute('data-annotator-cursor', activeTool.id);
+    styleEl.textContent = `*, *::before, *::after { cursor: ${cursor} !important; }`;
+    document.head.appendChild(styleEl);
+    return () => { styleEl.remove(); };
   }, [isActive, activeTool, cursorOptions]);
 
   const canvasPointerEvents = isActive && activeTool?.surface === 'canvas' ? 'auto' : 'none';

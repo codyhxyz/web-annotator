@@ -180,10 +180,12 @@ function wrapOne(
   mark.addEventListener('click', (e) => {
     e.stopPropagation(); e.preventDefault();
     const rect = mark.getBoundingClientRect();
+    // Menu lives inside the document-spanning overlay with
+    // `position: absolute`, so both x and y must be document-coords.
     window.dispatchEvent(new CustomEvent('annotator-highlight-menu', {
       detail: {
         id,
-        x: rect.left + rect.width / 2,
+        x: rect.left + window.scrollX + rect.width / 2,
         y: rect.bottom + window.scrollY,
       },
     }));
